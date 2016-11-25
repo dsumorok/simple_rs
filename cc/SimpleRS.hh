@@ -24,6 +24,7 @@
 #ifndef SIMPLERS_HH
 #define SIMPLERS_HH
 
+#include <random>
 #include <cstdlib>
 #include <cstdint>
 #include <cstdio>
@@ -36,12 +37,10 @@ template<std::size_t Q,
 class SimpleRS {
 public:
   typedef _gfEl_t gfEl_t;
-  typedef gfEl_t gfIWord_t[k];
-  typedef gfEl_t gfCWord_t[n];
-  
+
 private:
   typedef gfEl_t gfPoly_t[n];
-  
+
   static const std::size_t m_t = (n-k) / 2;
   uint32_t m_primativePoly;
   gfEl_t m_powTable[Q];
@@ -52,7 +51,7 @@ private:
   gfEl_t XStorage[2*m_t+1];
   gfPoly_t m_generator;
   bool m_valid;
-  
+
   inline gfEl_t divEl(const gfEl_t a, const gfEl_t b) const {
     int logA;
     int logInvB;
@@ -70,7 +69,7 @@ private:
 
     return m_powTable[(logA + logInvB) % (Q-1)];
   }
-  
+
   inline gfEl_t multEl(gfEl_t a, gfEl_t b) const {
     int logA;
     int logB;
@@ -141,13 +140,13 @@ private:
         break;
       }
     }
-    
+
     memset(result, 0, sizeof(result));
-    
+
     if((indexA == aLen) || (indexB == bLen)) {
       return true;
     }
-    
+
     if((aLen - indexA) < (bLen - indexB)) {
       shorter = &a[indexA];
       longer  = &b[indexB];
@@ -163,7 +162,7 @@ private:
     if((sLen + lLen - 1U) > rLen) {
       return false;
     }
-    
+
     indexR = rLen-1;
 
     for(i=0; i < sLen; ++i) {
@@ -211,9 +210,9 @@ private:
     if(rLen < aLen) {
       return false;
     }
-    
+
     memset(result, 0, sizeof(result));
-    
+
     for(i=0; i<aLen; ++i) {
       if((indexA > i) && (a[i] != 0)) {
         indexA = i;
@@ -236,7 +235,7 @@ private:
       fprintf(stderr, "%s: b is not normalized\n", __func__);
       return false;
     }
-    
+
     while(indexA <= indexB) {
       int kk = indexB - indexA;
 
@@ -284,7 +283,7 @@ private:
       divRes = divEl(divWork[indexA], b[indexB]);
       for(j=0; j<indexA; ++j) {
         divWork[kk + j] = divWork[kk + j] ^
-          multEl(divRes, b[j]);   
+          multEl(divRes, b[j]);
       }
 
       divWork[indexA] = 0;
@@ -419,7 +418,7 @@ private:
 
   template<typename T = gfPoly_t>
   gfEl_t evalPoly(const T &poly, gfEl_t val,
-		  std::size_t polyLen = sizeof(T) / sizeof(gfEl_t)) const {
+                  std::size_t polyLen = sizeof(T) / sizeof(gfEl_t)) const {
     //const std::size_t polyLen = sizeof(poly) / sizeof(poly[0]);
     gfEl_t result = 0;
     std::size_t i;
@@ -484,7 +483,7 @@ private:
       }
       vv[2*m_t] = 0;
       xx[2*m_t] = 0;
-      
+
       V = vv;
       U = uu;
       X = xx;
@@ -507,13 +506,13 @@ private:
   };
 
   void correctErrors(const gfEl_t el[m_t+1],
-		     const gfEl_t ee[m_t],
-                     gfCWord_t &codeWord) {
+                     const gfEl_t ee[m_t],
+                     gfEl_t *codeWord) {
     gfEl_t d_el[m_t];
     std::size_t i;
 
     memset(d_el, 0, sizeof(d_el));
-    
+
     for(i=0; i < (m_t+1)/2; ++i) {
       d_el[m_t-i*2-1] = el[m_t-i*2-1];
     }
@@ -533,7 +532,7 @@ private:
       if(val == 0) {
         gfEl_t num, denom;
         gfEl_t errVal;
-	
+
         num = evalPoly(ee, xVal, m_t);
         denom = evalPoly(d_el, xVal, m_t);
         errVal = divEl(num, denom);
@@ -544,34 +543,61 @@ private:
   }
 
 public:
+  virtual bool decode(gfEl_t *codeWord, size_t blockCount) {
+    for(size_t i=0; i<blockCount; ++i) {
+      if(!decode(&codeWord[i * n])) {
+        return false;
+      }
+    }
 
-  bool decode(gfCWord_t &codeWord) {
+    return true;
+  }
+
+  virtual bool decode(gfEl_t *codeWord) {
     gfEl_t S[2*m_t];
     std::size_t i;
     gfEl_t errorLocator[m_t+1];
     gfEl_t errorEvaluator[m_t];
+    gfEl_t cWord[n];
 
     if(!m_valid) {
       return false;
     }
 
+    for(size_t i=0; i<n; ++i) {
+      cWord[i] = codeWord[i];
+    }
+
     memset(errorLocator, 0, sizeof(errorLocator));
     memset(errorEvaluator, 0, sizeof(errorEvaluator));
-    
+
     for(i=0; i<(2*m_t); ++i) {
-      S[2*m_t-i-1] = evalPoly(codeWord, m_powTable[i+1]);
+      S[2*m_t-i-1] = evalPoly(cWord, m_powTable[i+1]);
     }
 
     mea(S, errorLocator, errorEvaluator);
 
     correctErrors(errorLocator, errorEvaluator,
                   codeWord);
-    
+
     return true;
   }
 
-  bool encode(const gfIWord_t &informationWord,
-              gfCWord_t &codeWord) {
+  virtual bool encode(const gfEl_t *informationWords,
+                      gfEl_t *codeWords, size_t blockCount) {
+
+    for(size_t i=0; i<blockCount; ++i) {
+      if(!encode(&informationWords[i * k],
+                 &codeWords[i * n])) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  virtual bool encode(const gfEl_t *informationWord,
+                      gfEl_t *codeWord) {
     std::size_t i;
     gfPoly_t iWord = {0};
     gfPoly_t cWord = {0};
@@ -595,13 +621,13 @@ public:
       codeWord[i] = cWord[i];
     }
 
-    return false;
+    return true;
   }
 
   static std::size_t getQ() {
     return Q;
   }
-  
+
   static std::size_t getn() {
     return n;
   }
@@ -614,7 +640,7 @@ public:
     return (n-k) / 2;
   }
 
-  void printGFPolyLog(gfPoly_t poly) const {
+  void printGFPolyLog(const gfPoly_t &poly) const {
     int i;
 
     for(i=(Q-1); i>=0; --i) {
@@ -632,23 +658,16 @@ public:
     const std::size_t polyLen = sizeof(poly) / sizeof(poly[0]);
     printGFPoly(poly, polyLen);
   }
-  
+
   static void printGFPoly(const gfEl_t *poly, size_t polyLen) {
-    std::size_t i;
-    std::size_t c;
+    std::size_t i = 0;
+    std::size_t c = 0;
 
     if(polyLen == 0) {
       return;
     }
-    
-    for(i=0; i<(polyLen-1); i++) {
-      if(poly[i] != 0) {
-        break;
-      }
-    }
 
     printf("{");
-    c=0;
     for(; i<(polyLen-1); i++) {
       if(n == 64) {
         printf("%02o ", poly[i]);
@@ -675,8 +694,117 @@ public:
     }
 
     initCode();
-};
 
+  };
+
+  bool test(std::size_t groupSize, std::size_t iter) {
+    gfEl_t *encoderInput;
+    gfEl_t *encoderOutput;
+    gfEl_t *decoderInput;
+    gfEl_t *decoderOutput;
+    std::size_t i;
+    std::size_t j;
+    std::size_t g;
+    int successCount = 0;
+    int failCount = 0;
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<unsigned int> genVal(0, getQ()-1);
+    std::uniform_int_distribution<unsigned int> genErrVal(1, getQ()-1);
+    std::uniform_int_distribution<unsigned int> genThresh(1, gett()-1);
+    std::uniform_int_distribution<unsigned int> genErr(0, n);
+    const size_t t = gett();
+    std::size_t *errCounts;
+
+
+    encoderInput  = new gfEl_t[k * groupSize];
+    encoderOutput = new gfEl_t[n * groupSize];
+    decoderInput  = new gfEl_t[n * groupSize];
+    decoderOutput = new gfEl_t[n * groupSize];
+
+    errCounts = new std::size_t[t+1];
+    memset(errCounts, 0, sizeof(std::size_t) * (t+1) );
+
+    for(i=0; i<iter; i += groupSize) {
+      for(g=0; g<groupSize; ++g) {
+        // Generate Test Input Vector
+        for(j=0; j<k; ++j) {
+          encoderInput[j + g*k] = genVal(gen);
+        }
+      }
+
+      // Encode Test Input Vector
+      if(!encode(encoderInput, encoderOutput, groupSize)) {
+        fprintf(stderr, "Encode Failed!\n");
+        return 1;
+      }
+
+      // Initialize decoder input with encoder output
+      memcpy(decoderInput, encoderOutput,
+             sizeof(gfEl_t) * n * groupSize);
+
+      for(g=0; g<groupSize; ++g) {
+        // Threshold that determines if an error should be introduced
+        unsigned int thresh = genThresh(gen);
+        std::size_t actualErrCount = 0;
+
+        for(j=0; j<n; ++j) {
+          if(genErr(gen) < thresh) {
+
+            // Introduce error at index j
+            gfEl_t errVal = genErrVal(gen);
+            decoderInput[j + n*g] ^= errVal;
+
+            // Make sure the total number of errors does not exceed the
+            // maximum number of errors that can be corrected
+            ++actualErrCount;
+            if(actualErrCount == t) {
+              break;
+            }
+          }
+        }
+        errCounts[actualErrCount] += 1;
+      }
+
+      // Initialize decoder output with decoder input
+      memcpy(decoderOutput, decoderInput,
+             sizeof(gfEl_t) * n * groupSize);
+
+      // Correct errors
+      decode(decoderOutput, groupSize);
+
+      for(g=0; g<groupSize; ++g) {
+        // Verify that errors were corrected
+        if(memcmp(&encoderOutput[n*g], &decoderOutput[n*g], n) == 0) {
+          ++successCount;
+        } else {
+          ++failCount;
+        }
+      }
+
+      if((i%10000) == (10000 - groupSize)) {
+        printf("SuccessCount = %d, failCount = %d\n",
+               successCount, failCount);
+      }
+    }
+
+    for(i=0; i<=t; ++i) {
+      printf("Count for %3zd errors: %zd\n",
+             i, errCounts[i]);
+    }
+
+    if((i%10000) != 0) {
+      printf("SuccessCount = %d, failCount = %d\n",
+             successCount, failCount);
+    }
+
+    delete [] errCounts;
+    delete [] encoderInput;
+    delete [] encoderOutput;
+    delete [] decoderInput;
+    delete [] decoderOutput;
+
+    return true;
+  }
 };
 #endif
-
