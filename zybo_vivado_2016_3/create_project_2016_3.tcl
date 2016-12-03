@@ -111,18 +111,10 @@ update_ip_catalog -rebuild
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
 set files [list \
- "[file normalize "build_files/system.bd"]"\
  "[file normalize "build_files/system_wrapper.v"]"]
 add_files -norecurse -fileset $obj $files
 
-# Set 'sources_1' fileset file properties for remote files
-set file "build_files/system.bd"
-set file [file normalize $file]
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-if { ![get_property "is_locked" $file_obj] } {
-  set_property "generate_synth_checkpoint" "0" $file_obj
-}
-
+source system.tcl
 
 # Set 'sources_1' fileset file properties for local files
 # None
