@@ -26,9 +26,8 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 library work;
-use work.gf.all;
 
-entity rsEncoder is  
+entity rsEncoder is
   generic (
     M        : natural;
     n        : natural;
@@ -45,80 +44,41 @@ entity rsEncoder is
 end entity rsEncoder;
 
 architecture rtl of rsEncoder is
+  package gf_pack is new work.gf2 generic map (
+      M           => M,
+      primPolyReq => primPoly,
+      alpha       => alpha);
+  use gf_pack.all;
+
   constant t         : natural := (n-k) / 2;
 
-  type gfArray_t is array(natural range <>) of gfEl_t(M-1 downto 0);
-
-  function mulPoly (
-    constant a        : gfArray_t;
-    constant b        : gfArray_t;
-    constant primPoly : natural)
+  function calc_generator
     return gfArray_t is
 
-    constant aLen   : natural := a'length;
-    constant bLen   : natural := b'length;
-    constant rLen   : natural := aLen + bLen - 1;
-    variable result : gfArray_t(rLen-1 downto 0)
-      := (others => (others => '0'));
-  begin --  function mulPoly
-    for i in 0 to rLen-1 loop
-      for j in 0 to aLen-1 loop
-        for k in 0 to bLen-1 loop
-          if (j+k) = i then
-            result(i) := result(i)
-                       + mulEl(a(j), b(k), primPoly);
-          end if;
-        end loop; -- k
-      end loop; -- j
-    end loop; -- i
-
-    return result;
-  end function mulPoly;
-
-  function calc_generator (
-    constant M        : natural;
-    constant t        : natural;
-    constant primPoly : natural;
-    constant alpha    : natural)
-    return gfArray_t is
-
-    variable result  : gfArray_t(2*t downto 0)
-      := (others => (others => '0'));
-    variable factor  : gfArray_t(1 downto 0);
-    variable tmpEl   : gfEl_t(M-1 downto 0);
-
-    constant gfZero : gfEl_t(M-1 downto 0) := gfEl_t(to_unsigned(0, M));
-    constant gfOne  : gfEl_t(M-1 downto 0) := gfEl_t(to_unsigned(1, M));
+    variable result : gfArray_t(2*t downto 0) := (0      => gfOne,
+                                                  others => gfZero);
+    variable factor : gfArray_t(1 downto 0)   := (others => gfOne);
+    variable tmpEl  : gfEl_t(M-1 downto 0);
   begin --  function calc_generator
-    factor(0) := gfOne;
-    factor(1) := gfOne;
-    result(0) := gfOne;
 
     for i in 0 to 2*t-1 loop
-      factor(0) := mulEl(factor(0), alpha, primPoly);
-
-      result(i+1 downto 0) :=
-        mulPoly(result(i downto 0), factor, primPoly);
+      factor(0)            := factor(0) * alpha;
+      result(i+1 downto 0) := result(i downto 0) * factor;
     end loop; --  i
 
     return result;
   end function calc_generator;
 
-  constant realPrimPoly : natural := calcPrimPoly(primPoly, alpha, M);
+  constant generator : gfArray_t := calc_generator;
 
-  constant generator : gfArray_t(2*t downto 0) :=
-    calc_generator(M, t, realPrimPoly, alpha);
-  
-  signal outVec : gfArray_t(2*t downto 0) :=
-    (others => (others => '0'));
-  signal inputBuffer : gfArray_t(2*t+1 downto 0) :=
-    (others => (others => '0'));
-  signal scale      : gfEl_t(M-1 downto 0)             := (others => '0');
-  signal count      : integer range 0 to n             := 0;
-  signal parityOut  : std_logic                        := '0';
-  signal pad        : std_logic                        := '0';
-  signal init       : std_logic                        := '1';
-  signal outStart_i : std_logic                        := '0';
+  signal outVec      : gfArray_t(2*t downto 0)   := (others => gfZero);
+  signal inputBuffer : gfArray_t(2*t+1 downto 0) := (others => gfZero);
+  signal scale       : gfEl_t(M-1 downto 0)      := gfZero;
+  signal count       : integer range 0 to n      := 0;
+  signal parityOut   : std_logic                 := '0';
+  signal pad         : std_logic                 := '0';
+  signal init        : std_logic                 := '1';
+  signal outStart_i  : std_logic                 := '0';
 Begin  -- architecture rtl
 
   shifter: process (clk) is
@@ -143,17 +103,15 @@ Begin  -- architecture rtl
       elsif count = (n - (2*t)) then
         pad <= '1';
       end if;
-      
+
       if init = '1' then
         scale <= (others => '0');
       else
-        scale <= outVec(2*t-1) +
-                 mulEl(scale, generator(2*t-1), realPrimPoly);
+        scale <= (scale * generator(2*t-1)) + outVec(2*t-1);
       end if;
-      
+
       for i in 2*t-1 downto 0 loop
-        outVec(i+1) <= outVec(i) +
-                       MulEl(scale, generator(i), realPrimPoly);
+        outVec(i+1) <= (scale * generator(i)) + outVec(i);
       end loop;  -- i
 
       if pad = '1' then
@@ -164,8 +122,8 @@ Begin  -- architecture rtl
 
       parityOut <= init;
 
-      inputBuffer((2*t)+1 downto 1)    <= inputBuffer((2*t) downto 0);
-      inputBuffer(0) <= gfEl_t(inEl);
+      inputBuffer((2*t)+1 downto 1) <= inputBuffer((2*t) downto 0);
+      inputBuffer(0)                <= gfEl_t(inEl);
 
       if parityOut = '1' then
         outEl <= std_logic_vector(outVec(2*t));

@@ -26,6 +26,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 library work;
+
 use work.gf.all;
 
 entity calcErrors is
@@ -111,7 +112,8 @@ architecture rtl of calcErrors is
 
     variable invTable : gfArray_t(Q-1 downto 0) := (others => (others => '0'));
     constant logTable : gfArray_t(0 to Q-1) := genLogTable;
-    constant powTable : gfArray_t(0 to Q-1) := genPowTable;
+    constant powTable : gfList_t := genPowTableX(M, primPoly, alpha);
+    --constant powTable : gfArray_t(0 to Q-1) := genPowTable;
     variable intLog : natural;
   begin  -- function calcInvTable
 
