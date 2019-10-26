@@ -53,12 +53,12 @@ architecture rtl of rsEncoder is
   constant t         : natural := (n-k) / 2;
 
   function calc_generator
-    return gfArray_t is
+    return gfPoly_t is
 
-    variable result : gfArray_t(2*t downto 0) := (0      => gfOne,
-                                                  others => gfZero);
-    variable factor : gfArray_t(1 downto 0)   := (others => gfOne);
-    variable tmpEl  : gfEl_t(M-1 downto 0);
+    variable result : gfPoly_t(2*t downto 0) := (0      => gfOne,
+                                                 others => gfZero);
+    variable factor : gfPoly_t(1 downto 0)   := (others => gfOne);
+    variable tmpEl  : gfEl_t;
   begin --  function calc_generator
 
     for i in 0 to 2*t-1 loop
@@ -69,16 +69,16 @@ architecture rtl of rsEncoder is
     return result;
   end function calc_generator;
 
-  constant generator : gfArray_t := calc_generator;
+  constant generator : gfPoly_t := calc_generator;
 
-  signal outVec      : gfArray_t(2*t downto 0)   := (others => gfZero);
-  signal inputBuffer : gfArray_t(2*t+1 downto 0) := (others => gfZero);
-  signal scale       : gfEl_t(M-1 downto 0)      := gfZero;
-  signal count       : integer range 0 to n      := 0;
-  signal parityOut   : std_logic                 := '0';
-  signal pad         : std_logic                 := '0';
-  signal init        : std_logic                 := '1';
-  signal outStart_i  : std_logic                 := '0';
+  signal outVec      : gfPoly_t(2*t downto 0)  := (others => gfZero);
+  signal inputBuffer : gfPoly_t(2*t downto 0)  := (others => gfZero);
+  signal scale       : gfEl_t                  := gfZero;
+  signal count       : integer range 0 to n    := 0;
+  signal parityOut   : std_logic               := '0';
+  signal pad         : std_logic               := '0';
+  signal init        : std_logic               := '1';
+  signal outStart_i  : std_logic               := '0';
 Begin  -- architecture rtl
 
   shifter: process (clk) is
@@ -122,8 +122,8 @@ Begin  -- architecture rtl
 
       parityOut <= init;
 
-      inputBuffer((2*t)+1 downto 1) <= inputBuffer((2*t) downto 0);
-      inputBuffer(0)                <= gfEl_t(inEl);
+      inputBuffer(2*t downto 1) <= inputBuffer((2*t-1) downto 0);
+      inputBuffer(0)            <= gfEl_t(inEl);
 
       if parityOut = '1' then
         outEl <= std_logic_vector(outVec(2*t));

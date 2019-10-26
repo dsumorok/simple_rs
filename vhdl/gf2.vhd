@@ -31,20 +31,11 @@ package gf2 is
     primPolyReq : natural := 0;
     alpha       : natural := 2);
 
-  type gfEl_t is array(natural range <>) of std_logic;
-  type gfList_t is array(natural range <>) of gfEl_t;
-  type gfPoly_t is array(natural range <>, natural range <>) of std_logic;
-  type gfArray_t is array(natural range <>) of gfEl_t(M-1 downto 0);
+  type gfEl_t is array(M-1 downto 0) of std_logic;
+  type gfPoly_t is array(natural range <>) of gfEl_t;
 
-  type newType_t is record
-    M        : natural;
-    primPoly : natural;
-    alpha    : natural;
-    val      : gfEl_t;
-  end record newType_t;
-  
-  function genPowTableX
-    return gfList_t;
+  -- function genPowTableX
+  --   return gfList_t;
 
   -- Multiply two field elements
   function mulEl (
@@ -59,16 +50,18 @@ package gf2 is
     constant b        : gfEl_t)
     return gfEl_t;
 
+  -- Multiply two field elements
   function "*" (
     constant a        : gfEl_t;
     constant b        : natural)
     return gfEl_t;
-  
+
+  -- Multiply two polynomials
   function "*" (
-    constant a        : gfArray_t;
-    constant b        : gfArray_t)
-    return gfArray_t;
-  
+    constant a        : gfPoly_t;
+    constant b        : gfPoly_t)
+    return gfPoly_t;
+
   -- Add two field elements
   function "+" (
     constant a : gfEl_t;
@@ -77,44 +70,20 @@ package gf2 is
 
   -- Generate a field element
   function gfEl (
-    constant value : natural;
-    constant MM    : natural)
-    return gfEl_t;
-
-  function gfEl (
     constant value : natural)
     return gfEl_t;
 
-  function setCoef (
-    constant poly  : gfPoly_t;
-    constant el    : gfEl_t;
-    constant index : natural)
-    return gfPoly_t;
-
-  function setCoefs (
-    constant poly1 : gfPoly_t;
-    constant poly2 : gfPoly_t)
-    return gfPoly_t;
-
-  function getCoefs (
-    constant poly   : gfPoly_t;
-    constant cRange : natural)
-    return gfPoly_t;
-
-  function getCoef (
-    constant poly  : gfPoly_t;
-    constant index : natural)
-    return gfEl_t;
-
   function calcPrimPoly (
-    constant primPolyIn : natural;
-    constant alphaIn    : natural;
-    constant MM         : natural)
+    constant primPolyIn : natural)
     return natural;
 
-  constant primPolyUsed : natural              := calcPrimPoly(primPolyReq, alpha, M);
-  constant gfZero       : gfEl_t(M-1 downto 0) := gfEl_t(to_unsigned(0, M));
-  constant gfOne        : gfEl_t(M-1 downto 0) := gfEl_t(to_unsigned(1, M));
+  function to_vector (
+    constant poly : gfPoly_t)
+    return std_logic_vector;
+
+  constant primPolyUsed : natural := calcPrimPoly(primPolyReq);
+  constant gfZero       : gfEl_t  := gfEl_t(to_unsigned(0, M));
+  constant gfOne        : gfEl_t  := gfEl_t(to_unsigned(1, M));
 
 end package gf2;
 
@@ -136,7 +105,7 @@ package body gf2 is
       := std_logic_vector(b);
     variable prod1  : std_logic_vector(MM*2-1 downto 0)
       := (others => '0');
-    variable result : gfEl_t(MM-1 downto 0);
+    variable result : gfEl_t;
   begin   -- function mulEl
     -- First, multiply polynomials
     for i in 0 to (MM-1) loop
@@ -176,7 +145,7 @@ package body gf2 is
     constant b        : natural)
     return gfEl_t is
   begin  -- function mulEl
-    return a * gfEl(b, a'length);
+    return a * gfEl(b);
   end function "*";
 
   -- purpose: Add two field elements
@@ -185,8 +154,7 @@ package body gf2 is
     constant b : gfEl_t)
     return gfEl_t is
 
-    constant MM     : natural := a'length;
-    variable result : gfEl_t(MM-1 downto 0);
+    variable result : gfEl_t;
   begin --  function "+"
 
     for i in 0 to M-1 loop
@@ -197,14 +165,14 @@ package body gf2 is
   end function "+";
 
   function "*" (
-    constant a        : gfArray_t;
-    constant b        : gfArray_t)
-    return gfArray_t is
+    constant a        : gfPoly_t;
+    constant b        : gfPoly_t)
+    return gfPoly_t is
 
     constant aLen   : natural := a'length;
     constant bLen   : natural := b'length;
     constant rLen   : natural := aLen + bLen - 1;
-    variable result : gfArray_t(rLen-1 downto 0)
+    variable result : gfPoly_t(rLen-1 downto 0)
       := (others => (others => '0'));
   begin --  function mulPoly
     for i in 0 to rLen-1 loop
@@ -220,15 +188,6 @@ package body gf2 is
 
     return result;
   end function "*";
-  
-  -- purpose: Generate a field element
-  function gfEl (
-    constant value : natural;
-    constant MM    : natural)
-    return gfEl_t is
-  begin --  function gfEl
-    return gfEl_t(to_unsigned(value, MM));
-  end function gfEl;
 
   function gfEl (
     constant value : natural)
@@ -236,82 +195,6 @@ package body gf2 is
   begin --  function gfEl
     return gfEl_t(to_unsigned(value, M));
   end function gfEl;
-
-  -- purpose: Retrieves a set of coefficients
-  function getCoefs (
-    constant poly   : gfPoly_t;
-    constant cRange : natural)
-    return gfPoly_t is
-
-    constant MM     : natural := poly'length(2);
-    variable result : gfPoly_t(cRange-1 downto 0, MM-1 downto 0);
-  begin  -- function getCoefs
-
-    for i in 0 to cRange-1 loop
-      for j in 0 to MM-1 loop
-        result(i,j) := poly(i,j);
-      end loop;  -- j
-    end loop;  -- i
-
-    return result;
-  end function getCoefs;
-
-  -- purpose: Copies poly1 to poly2
-  function setCoefs (
-    constant poly1 : gfPoly_t;
-    constant poly2 : gfPoly_t)
-    return gfPoly_t is
-
-    constant MM     : natural := poly2'length(2);
-    constant pLen   : natural := poly2'length(1);
-    constant M1     : natural := poly1'length(2);
-    constant pLen1  : natural := poly1'length(1);
-    variable result : gfPoly_t(pLen-1 downto 0, MM-1 downto 0)
-      := (others => (others => '0'));
-  begin  -- function setCoefs
-    for i in 0 to pLen1-1 loop
-      for j in 0 to M1-1 loop
-        result(i,j) := poly1(i,j);
-      end loop;  -- j
-    end loop;  -- i
-
-    return result;
-  end function setCoefs;
-
-  -- purpose: Sets a coefficent of a polynomial
-  function setCoef (
-    constant poly  : gfPoly_t;
-    constant el    : gfEl_t;
-    constant index : natural)
-    return gfPoly_t is
-
-    constant pLen : natural := poly'length(1);
-    constant MM    : natural := poly'length(2);
-    variable result : gfPoly_t(pLen-1 downto 0, MM-1 downto 0) := poly;
-  begin  -- function setCoef
-    for i in MM-1 downto 0 loop
-      result(index, i) := el(i);
-    end loop;  -- i
-
-    return result;
-  end function setCoef;
-
-  -- purpose: Retreive a coefficent
-  function getCoef (
-    constant poly  : gfPoly_t;
-    constant index : natural)
-    return gfEl_t is
-
-    constant pLen   : natural := poly'length(1);
-    constant MM     : natural := poly'length(2);
-    variable result : gfEl_t(MM-1 downto 0);
-  begin  -- function getCoef
-    for i in MM-1 downto 0 loop
-      result(i) := poly(index, i);
-    end loop;  -- i
-
-    return result;
-  end function getCoef;
 
   function modGF2Poly (
     constant MM : natural;
@@ -347,18 +230,16 @@ package body gf2 is
 
   -- purpose: Generates a primative polynomial
   function calcPrimPoly (
-    constant primPolyIn : natural;
-    constant alphaIn    : natural;
-    constant MM         : natural)
+    constant primPolyIn : natural)
     return natural is
 
     variable result    : natural;
     variable remainder : natural;
-    variable pow       : gfEl_t(MM-1 downto 0);
-    constant alphaEl   : gfEl_t := gfEl_t(to_unsigned(alphaIn, MM));
-    constant loopStart : natural := (2**MM)+1;
-    constant loopEnd   : natural := 2**(MM+1);
-    constant loopEnd2  : natural := (2**MM)-2;
+    variable pow       : gfEl_t;
+    constant alphaEl   : gfEl_t := gfEl_t(to_unsigned(alpha, M));
+    constant loopStart : natural := (2**M)+1;
+    constant loopEnd   : natural := 2**(M+1);
+    constant loopEnd2  : natural := (2**M)-2;
   begin  -- function calcPrimPoly
     if primPolyIn > 0 then
       return primPolyIn;
@@ -367,7 +248,7 @@ package body gf2 is
     for i in loopStart to loopEnd loop
       result := 0;
       for j in 2 to i-1 loop
-        if modGF2Poly(MM+1, i, j) = 0 then
+        if modGF2Poly(M+1, i, j) = 0 then
           exit;
         end if;
         result := j;
@@ -380,7 +261,7 @@ package body gf2 is
         for j in 1 to loopEnd2 loop
           pow := mulEl(pow, alphaEl, i);
           if to_integer(unsigned(pow)) = 1 then
-            if j = (2**MM)-2 then
+            if j = (2**M)-2 then
               return i;
             end if;
             exit;
@@ -392,22 +273,40 @@ package body gf2 is
     return 0;
   end function calcPrimPoly;
 
-  function genPowTableX
-      return gfList_t is
+  function to_vector (
+    constant poly : gfPoly_t)
+    return std_logic_vector is
 
-    constant Q       : natural              := 2**M;
-    constant alphaEl : gfEl_t(M-1 downto 0) := gfEl_t(to_unsigned(alpha, M));
-    variable val     : gfEl_t(M-1 downto 0) := gfEl_t(to_unsigned(1, M));
-    variable table   : gfList_t(0 to Q-1)(M-1 downto 0) := (others => (others => '0'));
-  begin  -- function genPowTable
-    table(1) := (others => '0');
+    constant pLen   : integer := poly'length * M;
+    variable vector : std_logic_vector(pLen-1 downto 0);
 
-    for i in 0 to Q-2 loop
-      table(i) := val;
-      val      := val * alphaEl;
+  begin
+
+    for i in 0 to poly'length-1 loop
+      for j in 0 to M-1 loop
+        vector(i*M + j) := poly(i)(j);
+      end loop;  -- j
     end loop;  -- i
 
-    return table;
-  end function genPowTableX;
+    return vector;
+  end function to_vector;
+
+  -- function genPowTableX
+  --     return gfList_t is
+
+  --   constant Q       : natural              := 2**M;
+  --   constant alphaEl : gfEl_t(M-1 downto 0) := gfEl_t(to_unsigned(alpha, M));
+  --   variable val     : gfEl_t(M-1 downto 0) := gfEl_t(to_unsigned(1, M));
+  --   variable table   : gfList_t(0 to Q-1)(M-1 downto 0) := (others => (others => '0'));
+  -- begin  -- function genPowTable
+  --   table(1) := (others => '0');
+
+  --   for i in 0 to Q-2 loop
+  --     table(i) := val;
+  --     val      := val * alphaEl;
+  --   end loop;  -- i
+
+  --   return table;
+  -- end function genPowTableX;
 
 end package body gf2;

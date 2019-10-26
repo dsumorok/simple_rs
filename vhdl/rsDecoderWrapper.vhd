@@ -53,10 +53,7 @@ end entity rsDecoderWrapper;
 
 architecture rtl of rsDecoderWrapper is
 
-  function getOutputBlockSize (
-    constant n            : natural;
-    constant k            : natural;
-    constant outputParity : boolean)
+  function getOutputBlockSize
     return natural is
   begin  -- function getOutputBlockSize
     if outputParity then
@@ -126,7 +123,7 @@ architecture rtl of rsDecoderWrapper is
       feederInputLast  : in  std_logic);
   end component rsOutputStage;
 
-  constant outputBlockSize : natural := getOutputBlockSize(n, k, outputParity);
+  constant outputBlockSize : natural := getOutputBlockSize;
   constant fifoDepth       : natural := coreDecoderLatency(n, k) + 2*n + 10;
 
   signal decoderIn        : std_logic_vector(M-1 downto 0) := (others => '0');

@@ -36,7 +36,7 @@ package gf is
     alpha    : natural;
     val      : gfEl_t;
   end record newType_t;
-  
+
   function genPowTableX (
     constant M        : in natural;
     constant primPoly : in natural;
@@ -69,32 +69,19 @@ package gf is
     constant M     : natural)
     return gfEl_t;
 
-  function setCoef (
-    constant poly  : gfPoly_t;
-    constant el    : gfEl_t;
-    constant index : natural)
-    return gfPoly_t;
-
-  function setCoefs (
-    constant poly1 : gfPoly_t;
-    constant poly2 : gfPoly_t)
-    return gfPoly_t;
-
-  function getCoefs (
-    constant poly   : gfPoly_t;
-    constant cRange : natural)
-    return gfPoly_t;
-
-  function getCoef (
-    constant poly  : gfPoly_t;
-    constant index : natural)
-    return gfEl_t;
-
   function calcPrimPoly (
     constant primPolyIn : natural;
     constant alpha      : natural;
     constant M          : natural)
     return natural;
+
+  function to_gfPoly (
+    constant M      : in integer;
+    constant vector : in std_logic_vector)
+    return gfPoly_t;
+  -- function std_logic_vector (
+  --   constant poly : gfPoly_t)
+  --   return std_logic_vector;
 
 end package gf;
 
@@ -176,82 +163,6 @@ package body gf is
   begin --  function gfEl
     return gfEl_t(to_unsigned(value, M));
   end function gfEl;
-
-  -- purpose: Retrieves a set of coefficients
-  function getCoefs (
-    constant poly   : gfPoly_t;
-    constant cRange : natural)
-    return gfPoly_t is
-
-    constant M    : natural := poly'length(2);
-    variable result : gfPoly_t(cRange-1 downto 0, M-1 downto 0);
-  begin  -- function getCoefs
-
-    for i in 0 to cRange-1 loop
-      for j in 0 to M-1 loop
-        result(i,j) := poly(i,j);
-      end loop;  -- j
-    end loop;  -- i
-
-    return result;
-  end function getCoefs;
-
-  -- purpose: Copies poly1 to poly2
-  function setCoefs (
-    constant poly1 : gfPoly_t;
-    constant poly2 : gfPoly_t)
-    return gfPoly_t is
-
-    constant M      : natural := poly2'length(2);
-    constant pLen   : natural := poly2'length(1);
-    constant M1     : natural := poly1'length(2);
-    constant pLen1  : natural := poly1'length(1);
-    variable result : gfPoly_t(pLen-1 downto 0, M-1 downto 0)
-      := (others => (others => '0'));
-  begin  -- function setCoefs
-    for i in 0 to pLen1-1 loop
-      for j in 0 to M1-1 loop
-        result(i,j) := poly1(i,j);
-      end loop;  -- j
-    end loop;  -- i
-
-    return result;
-  end function setCoefs;
-
-  -- purpose: Sets a coefficent of a polynomial
-  function setCoef (
-    constant poly  : gfPoly_t;
-    constant el    : gfEl_t;
-    constant index : natural)
-    return gfPoly_t is
-
-    constant pLen : natural := poly'length(1);
-    constant M    : natural := poly'length(2);
-    variable result : gfPoly_t(pLen-1 downto 0, M-1 downto 0) := poly;
-  begin  -- function setCoef
-    for i in M-1 downto 0 loop
-      result(index, i) := el(i);
-    end loop;  -- i
-
-    return result;
-  end function setCoef;
-
-  -- purpose: Retreive a coefficent
-  function getCoef (
-    constant poly  : gfPoly_t;
-    constant index : natural)
-    return gfEl_t is
-
-    constant pLen : natural := poly'length(1);
-    constant M    : natural := poly'length(2);
-    variable result : gfEl_t(M-1 downto 0);
-  begin  -- function getCoef
-    for i in M-1 downto 0 loop
-      result(i) := poly(index, i);
-    end loop;  -- i
-
-    return result;
-  end function getCoef;
 
   function modGF2Poly (
     constant M : natural;
@@ -352,5 +263,24 @@ package body gf is
 
     return table;
   end function genPowTableX;
+
+  function to_gfPoly (
+    constant M      : in integer;
+    constant vector : in std_logic_vector)
+    return gfPoly_t is
+
+    constant N    : integer := vector'length / M;
+    variable poly : gfPoly_t(N-1 downto 0, M-1 downto 0);
+
+  begin
+
+    for i in 0 to N-1 loop
+      for j in 0 to M-1 loop
+        poly(i,j) := vector(i*M + j);
+      end loop;  -- j
+    end loop;  -- i
+
+    return poly;
+  end function to_gfPoly;
 
 end package body gf;

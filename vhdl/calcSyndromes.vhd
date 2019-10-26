@@ -26,7 +26,6 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 library work;
-use work.gf.all;
 
 entity calcSyndromes is
   generic (
@@ -38,53 +37,49 @@ entity calcSyndromes is
   port (
     clk            : in  std_logic;
     resetn         : in  std_logic;
-    inEl           : in  gfEl_t(M-1 downto 0);
+    inEl           : in  std_logic_vector;
     inStart        : in  std_logic;
-    syndromes      : out gfPoly_t(2*((n-k)/2)-1 downto 0, M-1 downto 0);
+    syndromes      : out std_logic_vector;
     syndromesStart : out std_logic);
 End entity calcSyndromes;
 
 architecture rtl of calcSyndromes is
-  
+  package gf_pack is new work.gf2 generic map (
+      M           => M,
+      primPolyReq => primPoly,
+      alpha       => alpha);
+  use gf_pack.all;
+
   constant t         : natural := (n-k) / 2;
 
-  type gfArray_t is array(natural range <>) of gfEl_t(M-1 downto 0);
-
   function calcEvalPoints
-    return gfArray_t is
+    return gfPoly_t is
 
-    constant t      : natural
-      := (n-k)/2;
-    constant x      : gfEl_t(M-1 downto 0)
-      := gfEl(alpha, M);
-    variable retVal : gfArray_t(2*t-1 downto 0)
-      := (others => (others => '0'));
-    variable val    : gfEl_t(M-1 downto 0)
-      := (others => '0');
+    constant x      : gfEl_t                   := gfEl(alpha);
+    variable val    : gfEl_t                   := gfZero;
+    variable retVal : gfPoly_t(2*t-1 downto 0) := (others => gfZero);
+
   begin  -- function calcEvalPoints
     val := x;
 
     for i in 0 to 2*t-1 loop
       retVal(i) := val;
-      val       := mulEl(val, x, primPoly);
+      val       := val * x;
     end loop;  -- i
 
     return retVal;
   end function calcEvalPoints;
-  
-  constant evalPoints : gfArray_t(2*t-1 downto 0)
-    := calcEvalPoints;
-  signal startInSR  : std_logic_vector(2*t+n downto 0)
-    := (others => '0');
-  signal outputs1   : gfArray_t(2*t-1 downto 0)
-    := (others => (others => '0'));
-  signal inputArray : gfArray_t(2*t downto 0)
-    := (others => (others => '0'));
-  signal syndromesStart_i : std_logic := '0';
+
+  constant evalPoints     : gfPoly_t(2*t-1 downto 0)         := calcEvalPoints;
+  signal startInSR        : std_logic_vector(2*t+n downto 0) := (others => '0');
+  signal state            : gfPoly_t(2*t-1 downto 0)         := (others => gfZero);
+  signal syndromes_i      : gfPoly_t(2*t-1 downto 0)         := (others => gfZero);
+  signal inputArray       : gfPoly_t(2*t downto 0)           := (others => gfZero);
+  signal syndromesStart_i : std_logic                        := '0';
 begin  -- architecture rtl
 
   setShift: process (clk) is
-    variable prevResult : gfEl_t(M-1 downto 0);
+    variable prevResult : gfEl_t;
   begin  -- process setShift
 
     if rising_edge(clk) then
@@ -93,32 +88,29 @@ begin  -- architecture rtl
       else
         startInSR  <= startInSR(2*t+n-1 downto 0) & inStart;
       end if;
-      inputArray <= inputArray(2*t-1 downto 0) & inEl;
+      inputArray <= inputArray(2*t-1 downto 0) & gfEl_t(inEl);
 
       for i in 0 to 2*t-1 loop
         if startInSR(i) = '0' then
-          prevResult := outputs1(i);
+          prevResult := state(i);
         else
-          prevResult := (others => '0');
+          prevResult := gfZero;
         end if;
 
-        outputs1(i) <= mulEl(evalPoints(i), prevResult, primPoly) +
-                       inputArray(i);
+        state(i) <= (evalPoints(i) * prevResult) +
+                    inputArray(i);
 
         if startInSR(i+n) = '1' then
-          for j in 0 to M-1 loop
-            syndromes(i,j) <= outputs1(i)(j);
-          end loop;  -- j
+          syndromes_i(i) <= state(i);
         end if;
-        
+
       end loop;  -- i
 
       syndromesStart_i <= startInSR(2*t+n);
     end if;
-
-
   end process setShift;
 
   syndromesStart <= syndromesStart_i;
+  syndromes      <= to_vector(syndromes_i);
 
 end architecture rtl;

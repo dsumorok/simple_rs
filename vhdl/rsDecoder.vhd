@@ -56,9 +56,9 @@ architecture rtl of rsDecoder is
     port (
       clk            : in  std_logic;
       resetn         : in  std_logic;
-      inEl           : in  gfEl_t(M-1 downto 0);
+      inEl           : in  std_logic_vector;
       inStart        : in  std_logic;
-      syndromes      : out gfPoly_t(2*((n-k)/2)-1 downto 0, M-1 downto 0);
+      syndromes      : out std_logic_vector;
       syndromesStart : out std_logic);
   end component calcSyndromes;
 
@@ -116,9 +116,10 @@ architecture rtl of rsDecoder is
   constant realPrimPoly : natural := calcPrimPoly(primPoly, alpha, M);
   constant t            : natural := (n-k)/2;
   
-  signal inEl_i         : gfEl_t(M-1 downto 0);
+  signal inEl_i         : std_logic_vector(M-1 downto 0) := (others => '0');
   signal inElStart_i    : std_logic := '0';
   signal syndromes      : gfPoly_t(2*t-1 downto 0, M-1 downto 0);
+  signal syndromes1     : std_logic_vector(2*t*m-1 downto 0);
   signal syndromesStart : std_logic;
   signal errorLocator   : gfPoly_t(t downto 0, M-1 downto 0);
   signal errorEvaluator : gfPoly_t(t-1 downto 0, M-1 downto 0);
@@ -132,8 +133,8 @@ Begin  -- architecture rtl
   bufferInput: process (clk) is
   begin  -- process bufferInput
     if rising_edge(clk) then
-      inEl_i(M-1 downto 0) <= gfEl_t(inEl);
-      inElStart_i          <= inStart;
+      inEl_i      <= inEl;
+      inElStart_i <= inStart;
     end if;
   end process bufferInput;
 
@@ -149,8 +150,10 @@ Begin  -- architecture rtl
       resetn         => resetn,
       inEl           => inEl_i,
       inStart        => inElStart_i,
-      syndromes      => syndromes,
+      syndromes      => syndromes1,
       syndromesStart => syndromesStart);
+
+  syndromes <= to_gfPoly(M, syndromes1);
 
   mea_i : mea
     generic map (
@@ -193,7 +196,7 @@ Begin  -- architecture rtl
     port map (
       clk           => clk,
       resetn        => resetn,
-      dataIn        => inEl_i,
+      dataIn        => gfEl_t(inEl_i),
       dataInStart   => inElStart_i,
       errorsIn      => errorVal,
       errorsInStart => errorStart,
