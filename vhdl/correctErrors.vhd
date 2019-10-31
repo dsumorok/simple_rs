@@ -26,7 +26,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 library work;
-use work.gf.all;
+--use work.gf.all;
 use work.rsUtil.all;
 
 entity correctErrors is
@@ -37,11 +37,11 @@ entity correctErrors is
   port (
     clk           : in  std_logic;
     resetn        : in  std_logic;
-    dataIn        : in  gfEl_t(M-1 downto 0);
+    dataIn        : in  std_logic_vector;
     dataInStart   : in  std_logic;
-    errorsIn      : in  gfEl_t(M-1 downto 0);
+    errorsIn      : in  std_logic_vector;
     errorsInStart : in  std_logic;
-    dataOut       : out std_logic_vector(M-1 downto 0);
+    dataOut       : out std_logic_vector;
     dataOutStart  : out std_logic);
 end entity correctErrors;
 
@@ -76,9 +76,9 @@ architecture rtl of correctErrors is
   signal reorderOutAddr : natural range 2*n-1 downto 0   := 0;
   signal reorderStartSR : std_logic_vector(5 downto 0)   := (others => '0');
 
-  signal error_0 : gfEl_t(M-1 downto 0) := (others => '0');
-  signal error_1 : gfEl_t(M-1 downto 0) := (others => '0');
-  signal error_2 : gfEl_t(M-1 downto 0) := (others => '0');
+  signal error_0 : std_logic_vector(M-1 downto 0) := (others => '0');
+  signal error_1 : std_logic_vector(M-1 downto 0) := (others => '0');
+  signal error_2 : std_logic_vector(M-1 downto 0) := (others => '0');
 
   signal errorsInStart_1 : std_logic := '0';
   signal errorsInStart_2 : std_logic := '0';

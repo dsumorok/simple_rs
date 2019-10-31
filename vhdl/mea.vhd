@@ -26,7 +26,6 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 library work;
-use work.gf.all;
 
 entity mea is
   generic (
@@ -39,14 +38,19 @@ entity mea is
   port (
     clk            : in  std_logic;
     resetn         : in  std_logic;
-    syndromesIn    : in  gfPoly_t(2*((n-k)/2)-1 downto 0, M-1 downto 0);
+    syndromesIn    : in  std_logic_vector;
     syndromesStart : in  std_logic;
-    errorLocator   : out gfPoly_t((n-k)/2 downto 0, M-1 downto 0);
-    errorEvaluator : out gfPoly_t((n-k)/2-1 downto 0, M-1 downto 0);
+    errorLocator   : out std_logic_vector;
+    errorEvaluator : out std_logic_vector;
     outStart       : out std_logic);
 end entity mea;
 
 architecture rtl of mea is
+  package gf_pack is new work.gf generic map (
+      M           => M,
+      primPolyReq => primPoly,
+      alpha       => alpha);
+  use gf_pack.all;
 
   type configRecord is record
     t          : natural;
@@ -57,8 +61,6 @@ architecture rtl of mea is
   end record configRecord;
 
   function genConfiguration (
-    constant n       : natural;
-    constant k       : natural;
     constant latency : natural)
     return configRecord is
 
@@ -95,46 +97,23 @@ architecture rtl of mea is
     return result;
   end function genConfiguration;
 
-  constant config     : configRecord := genConfiguration(n, k, n+extraCycles);
+  constant config     : configRecord := genConfiguration(n+extraCycles);
   constant t          : natural      := config.t;
   constant period     : natural      := config.period;
   constant workPeriod : natural      := config.workPeriod;
   constant workSize   : natural      := config.workSize;
   constant pipeline   : boolean      := config.pipeline;
 
-  type gfArray_t is array(natural range <>) of gfEl_t(M-1 downto 0);
-
-  -----------------------------------------------------------------------------
-  -- Converts a two dimentional array or std_logic to an array or
-  -- std_logic_vector
-  -----------------------------------------------------------------------------
-  function poly2array (
-    constant p : gfPoly_t)
-    return gfArray_t is
-
-    constant pLen : natural := p'length(1);
-
-    variable result : gfArray_t(pLen-1 downto 0);
-  begin  -- function poly2array
-    for i in 0 to pLen-1 loop
-      for j in 0 to M-1 loop
-        result(i)(j) := p(i,j);
-      end loop;  -- j
-    end loop;  -- i
-
-    return result;
-  end function poly2array;
-
   -----------------------------------------------------------------------------
   -- Performs a circular right shift
   -----------------------------------------------------------------------------
   function crshift (
-    constant x     : gfArray_t;
+    constant x     : gfPoly_t;
     constant shift : natural)
-    return gfArray_t is
+    return gfPoly_t is
 
     constant xlen       : natural := x'length;
-    variable result     : gfArray_t(xlen-1 downto 0);
+    variable result     : gfPoly_t(xlen-1 downto 0);
     constant shiftStart : natural := shift mod xlen;
   begin  -- function cshift
     if shiftStart = 0 then
@@ -150,10 +129,10 @@ architecture rtl of mea is
   -- Performs a circular shift
   -----------------------------------------------------------------------------
   function finalShift (
-    constant x : gfArray_t)
-    return gfArray_t is
+    constant x : gfPoly_t)
+    return gfPoly_t is
 
-    variable sr         : gfArray_t(x'length-1 downto 0);
+    variable sr         : gfPoly_t(x'length-1 downto 0);
     variable extraShift : natural;
     variable shiftAmt   : natural;
   begin  -- function finalShift
@@ -168,17 +147,17 @@ architecture rtl of mea is
   -- State used to solve the key equation
   -----------------------------------------------------------------------------
   type meaState_t is record
-    X             : gfArray_t(2*t-1 downto 0);
-    V             : gfArray_t(2*t-1 downto 0);
-    VTop          : gfEl_t(M-1 downto 0);
+    X             : gfPoly_t(2*t-1 downto 0);
+    V             : gfPoly_t(2*t-1 downto 0);
+    VTop          : gfEl_t;
     sigma         : integer range -2*t to 2*t;
     sigmaNegative : std_logic;
   end record meaState_t;
 
   type wuState_t is record
-    W             : gfArray_t(2*t-1 downto 0);
-    U             : gfArray_t(2*t-1 downto 0);
-    UTop          : gfEl_t(M-1 downto 0);
+    W             : gfPoly_t(2*t-1 downto 0);
+    U             : gfPoly_t(2*t-1 downto 0);
+    UTop          : gfEl_t;
   end record wuState_t;
 
   -----------------------------------------------------------------------------
@@ -186,35 +165,31 @@ architecture rtl of mea is
   -----------------------------------------------------------------------------
 
   function initState (
-    constant S : gfArray_t(2*t-1 downto 0))
+    constant S : gfPoly_t(2*t-1 downto 0))
     return meaState_t is
 
     variable result : meaState_t;
-    constant gfZero : gfEl_t(M-1 downto 0) := (others => '0');
-    constant gfOne  : gfEl_t(M-1 downto 0) := gfEl_t(to_unsigned(1, M));
-    
+
   begin  -- function initState
     result.V             := S(2*t-1 downto 0);
     result.VTop          := S(2*t-1);
-    result.X             := (others => (others => '0'));
+    result.X             := (others => gfZero);
     result.X(0)          := gfOne;
     result.sigma         := -1;
     result.sigmaNegative := '1';
 
     result.V := crshift(result.V, workSize*workPeriod+1);
     result.X := crshift(result.X, workSize*workPeriod+1);
-    
+
     return result;
   end function initState;
 
   function initWUState (
-    constant S : gfArray_t(2*t-1 downto 0))
+    constant S : gfPoly_t(2*t-1 downto 0))
     return wuState_t is
 
     variable result : wuState_t;
-    constant gfZero : gfEl_t(M-1 downto 0) := (others => '0');
-    constant gfOne  : gfEl_t(M-1 downto 0) := gfEl_t(to_unsigned(1, M));
-    
+
   begin  -- function initWUState
     result.U             := (others => (others => '0'));
     result.U(2*t-1)      := gfOne;
@@ -223,7 +198,7 @@ architecture rtl of mea is
 
     result.U := crshift(result.U, workSize*workPeriod);
     result.W := crshift(result.W, workSize*workPeriod);
-    
+
     return result;
   end function initWUState;
 
@@ -242,10 +217,11 @@ architecture rtl of mea is
       result.X := crshift(mns.X, workSize);
 
       for i in workSize-1 downto 0 loop
-        result.V(2*t-(workSize-1)+i-1) := mulEl(wus.Utop, mst.V(i), primPoly)
-                   + mulEl(mst.Vtop, wus.U(i), primPoly);
-        result.X(2*t-(workSize-1)+i-1) := mulEl(wus.Utop, mst.X(i), primPoly)
-                   + mulEl(mst.Vtop, wus.W(i), primPoly);
+        result.V(2*t-(workSize-1)+i-1) := (wus.Utop * mst.V(i)) +
+                                          (mst.Vtop * wus.U(i));
+
+        result.X(2*t-(workSize-1)+i-1) := (wus.Utop * mst.X(i)) +
+                                          (mst.Vtop * wus.W(i));
       end loop;  -- i
 
       result.sigma := mst.sigma;
@@ -270,11 +246,10 @@ architecture rtl of mea is
     return meaState_t is
 
     variable result : meaState_t;
-    variable xx     : gfArray_t(2*t-1 downto 0);
-    variable vv     : gfArray_t(2*t-1 downto 0);
-    variable uu     : gfArray_t(2*t-1 downto 0);
-    variable ww     : gfArray_t(2*t-1 downto 0);
-    constant gfZero : gfEl_t(M-1 downto 0) := (others => '0');
+    variable xx     : gfPoly_t(2*t-1 downto 0);
+    variable vv     : gfPoly_t(2*t-1 downto 0);
+    variable uu     : gfPoly_t(2*t-1 downto 0);
+    variable ww     : gfPoly_t(2*t-1 downto 0);
   begin  -- function doSwap
 
     xx    := finalShift(mns.X);
@@ -306,7 +281,7 @@ architecture rtl of mea is
 
     return result;
   end function doSwap;
-  
+
   function doSwap (
     constant mst : meaState_t;
     constant mns : meaState_t;
@@ -314,13 +289,11 @@ architecture rtl of mea is
     return wuState_t is
 
     variable result : wuState_t;
-    variable xx     : gfArray_t(2*t-1 downto 0);
-    variable vv     : gfArray_t(2*t-1 downto 0);
-    variable uu     : gfArray_t(2*t-1 downto 0);
-    variable ww     : gfArray_t(2*t-1 downto 0);
-    constant gfZero : gfEl_t(M-1 downto 0) := (others => '0');
+    variable xx     : gfPoly_t(2*t-1 downto 0);
+    variable vv     : gfPoly_t(2*t-1 downto 0);
+    variable uu     : gfPoly_t(2*t-1 downto 0);
+    variable ww     : gfPoly_t(2*t-1 downto 0);
   begin  -- function doSwap
-
     xx    := finalShift(mns.X);
     xx    := crshift(xx, 2*t-1);
 
@@ -342,15 +315,15 @@ architecture rtl of mea is
 
     return result;
   end function doSwap;
-  
-  signal SIn          : gfArray_t(2*t-1 downto 0);
-  signal count        : natural range 0 to period*2*t       := 0;
-  signal done1        : std_logic                           := '0';
-  signal el_i         : gfArray_t(t downto 0)               := (others => (others => '0'));
-  signal ee_i         : gfArray_t(t-1 downto 0)             := (others => (others => '0'));
-  signal outValid_i   : std_logic                           := '0';
-  signal shiftRight   : std_logic                           := '0';
-  signal shiftCount   : natural range 0 to t+1              := 0;
+
+  signal SIn          : gfPoly_t(2*t-1 downto 0);
+  signal count        : natural range 0 to period*2*t := 0;
+  signal done1        : std_logic                     := '0';
+  signal el_i         : gfPoly_t(t downto 0)          := (others => (others => '0'));
+  signal ee_i         : gfPoly_t(t-1 downto 0)        := (others => (others => '0'));
+  signal outValid_i   : std_logic                     := '0';
+  signal shiftRight   : std_logic                     := '0';
+  signal shiftCount   : natural range 0 to t+1        := 0;
   signal currentState : meaState_t;
   signal nextState    : meaState_t;
   signal wuState      : wuState_t;
@@ -359,13 +332,10 @@ architecture rtl of mea is
 
   signal stateShift   : std_logic_vector(period-1 downto 0)
     := ssInitVal;
-
-  constant gfZero   : gfEl_t(M-1 downto 0)      := (others => '0');
-  constant gfOne    : gfEl_t(M-1 downto 0)      := gfEl_t(to_unsigned(1, M));
 begin  -- architecture rtl
 
-  SIn <= poly2array(syndromesIn);
-  
+  SIn <= to_gfPoly(syndromesIn);
+
   stage1Control: process (clk) is
   begin  -- process stage1Control
     if rising_edge(clk) then
@@ -385,10 +355,10 @@ begin  -- architecture rtl
         done1 <= '1';
       else
         done1 <= '0';
-      end if;      
+      end if;
     end if;
   end process stage1Control;
-  
+
   -- This stage is where most of the work is done.  It takes (2*t*period + 1)
   -- cycles to process a set of syndromes and generate what are almost the
   -- error locator and error evaluator polynomials
@@ -447,7 +417,7 @@ begin  -- architecture rtl
       elsif shiftCount /= 0 then
         shiftCount <= shiftCount + 1;
       end if;
-      
+
       if done1 = '1' then
         el_i <= finalShift(nextState.X)(2*t-1 downto t-1);
         ee_i <= finalShift(nextState.V)(2*t-2 downto t-1);
@@ -472,13 +442,8 @@ begin  -- architecture rtl
 
       if outValid_i = '1' then
         -- Convert from array of array to 2-dimentional array
-        for j in 0 to M-1 loop
-          for i in 0 to (n-k)/2-1 loop
-            errorLocator(i,j)   <= el_i(i)(j);
-            errorEvaluator(i,j) <= ee_i(i)(j);
-          end loop;  -- i
-          errorLocator((n-k)/2,j) <= el_i((n-k)/2)(j);
-        end loop;  -- j
+        errorLocator   <= to_vector(el_i);
+        errorEvaluator <= to_vector(ee_i);
       end if;
 
       if shiftCount = t+1 and resetn = '1' then

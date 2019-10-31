@@ -26,80 +26,62 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 library work;
-use work.gf.all;
 use work.rsUtil.all;
 
 entity chien_search is
   generic (
-    alpha    : natural := 2;
-    M        : natural := 8;
-    primPoly : natural := 285;
-    polyLen  : natural := 1);
+    alpha    : natural;
+    M        : natural;
+    primPoly : natural;
+    polyLen  : natural);
   port (
     clk       : in std_logic;
     resetn    : in std_logic;
-    coefsIn   : in gfPoly_t(polyLen-1 downto 0, M-1 downto 0);
+    coefsIn   : in std_logic_vector;
     loadCoefs : in std_logic;
-    valueOut  : out gfEl_t(M-1 downto 0);
+    valueOut  : out std_logic_vector;
     outValid  : out std_logic);
 end entity chien_search;
 
 architecture rtl of chien_search is
-
-  type gfArray_t is array(natural range <>) of gfEl_t(M-1 downto 0);
-
-  function poly2array (
-    constant p : gfPoly_t)
-    return gfArray_t is
-
-    constant pLen : natural := p'length(1);
-
-    variable result : gfArray_t(pLen-1 downto 0);
-  begin  -- function poly2array
-    for i in 0 to pLen-1 loop
-      for j in 0 to M-1 loop
-        result(i)(j) := p(i,j);
-      end loop;  -- j
-    end loop;  -- i
-
-    return result;
-  end function poly2array;
+  package gf_pack is new work.gf generic map (
+      M           => M,
+      primPolyReq => primPoly,
+      alpha       => alpha);
+  use gf_pack.all;
 
   function genAFactors
-    return gfArray_t is
+    return gfPoly_t is
 
-    variable result : gfArray_t(polyLen-1 downto 0);
-    variable factor : gfEl_t(M downto 1) := gfEl_t(to_unsigned(1, M));
+    variable result : gfPoly_t(polyLen-1 downto 0);
+    variable factor : gfEl_t := gfOne;
   begin  -- function genAFactors
     for i in 0 to polyLen-1 loop
       result(i) := factor;
-      factor := mulEl(factor, alpha, primPoly);
+      factor    := factor * alpha;
     end loop;  -- i
 
     return result;
   end function genAFactors;
 
-
-  constant factors : gfArray_t(polyLen-1 downto 0)
-    := genAFactors;
-  signal coefs     : gfArray_t(polyLen-1 downto 0)
-    := (others => (others => '0'));
+  constant factors : gfPoly_t(polyLen-1 downto 0) := genAFactors;
+  signal coefs     : gfPoly_t(polyLen-1 downto 0) := (others => gfZero);
 
   constant numStages   : natural := calcNumStages(addsPerSum, polyLen);
   constant stageLength : natural := addsPerSum ** numStages;
 
   type adderTree_t is array(numStages downto 0)
-    of gfArray_t(stageLength-1 downto 0);
+    of gfPoly_t(stageLength-1 downto 0);
 
-  signal adderTree  : adderTree_t
-    := (others => (others => (others => '0')));
+  signal adderTree  : adderTree_t := (others => (others => gfZero));
+
   signal count      : natural range 0 to numStages := 0;
   signal outValid_i : std_logic                    := '0';
 begin  -- architecture rtl
 
   mainLogic: process (clk) is
     variable sumCount : natural;
-    variable sum : gfEl_t(M-1 downto 0);
+    variable sum      : gfEl_t;
   begin  -- process mainLogic
     if rising_edge(clk) then
       if resetn = '0' then
@@ -119,10 +101,10 @@ begin  -- architecture rtl
       end if;
       
       if loadCoefs = '1' then
-        coefs <= poly2array(coefsIn);
+        coefs <= to_gfPoly(coefsIn);
       else
         for i in 0 to polyLen-1 loop
-          coefs(i)        <= mulEl(coefs(i), factors(i), primPoly);
+          coefs(i) <= coefs(i) * factors(i);
         end loop;  -- i
       end if;
 
@@ -142,7 +124,7 @@ begin  -- architecture rtl
         end loop;  -- sumNumber
       end loop;  -- stage
 
-      valueOut <= adderTree(0)(0);
+      valueOut <= std_logic_vector(adderTree(0)(0));
     end if;
   end process mainLogic;
 

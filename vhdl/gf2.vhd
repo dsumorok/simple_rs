@@ -25,7 +25,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-package gf2 is
+package gf is
   generic (
     M           : natural;
     primPolyReq : natural := 0;
@@ -81,13 +81,28 @@ package gf2 is
     constant poly : gfPoly_t)
     return std_logic_vector;
 
+  function to_gfPoly(
+    constant vector : std_logic_vector)
+    return gfPoly_t;
+
+  function calcInvTable
+    return gfPoly_t;
+
+  function genLogTable(
+    constant base : gfEl_t)
+    return gfPoly_t;
+
+  function genPowTable(
+    constant base : gfEl_t)
+    return gfPoly_t;
+
   constant primPolyUsed : natural := calcPrimPoly(primPolyReq);
   constant gfZero       : gfEl_t  := gfEl_t(to_unsigned(0, M));
   constant gfOne        : gfEl_t  := gfEl_t(to_unsigned(1, M));
 
-end package gf2;
+end package gf;
 
-package body gf2 is
+package body gf is
 
   -- purpose: Multiply two field elements
   function mulEl (
@@ -291,22 +306,81 @@ package body gf2 is
     return vector;
   end function to_vector;
 
-  -- function genPowTableX
-  --     return gfList_t is
+  function to_gfPoly(
+    constant vector : std_logic_vector)
+    return gfPoly_t is
 
-  --   constant Q       : natural              := 2**M;
-  --   constant alphaEl : gfEl_t(M-1 downto 0) := gfEl_t(to_unsigned(alpha, M));
-  --   variable val     : gfEl_t(M-1 downto 0) := gfEl_t(to_unsigned(1, M));
-  --   variable table   : gfList_t(0 to Q-1)(M-1 downto 0) := (others => (others => '0'));
-  -- begin  -- function genPowTable
-  --   table(1) := (others => '0');
+    constant pLen : integer := vector'length / M;
+    variable poly : gfPoly_t(pLen-1 downto 0);
 
-  --   for i in 0 to Q-2 loop
-  --     table(i) := val;
-  --     val      := val * alphaEl;
-  --   end loop;  -- i
+  begin
 
-  --   return table;
-  -- end function genPowTableX;
+    for i in 0 to pLen-1 loop
+      for j in 0 to M-1 loop
+        poly(i)(j) := vector(i*M + j);
+      end loop;  -- j
+    end loop;  -- i
 
-end package body gf2;
+    return poly;
+  end function to_gfPoly;
+
+  function genLogTable(
+    constant base : gfEl_t)
+    return gfPoly_t is
+
+    constant Q     : natural            := 2**M;
+    variable val   : gfEl_t             := base;
+    variable table : gfPoly_t(0 to Q-1) := (others => gfZero);
+    variable index : natural;
+  begin  -- function genLogTable
+    table(1) := (others => '0');
+
+    for i in 1 to Q-1 loop
+      index        := to_integer(unsigned(val));
+      table(index) := gfEl_t(to_unsigned(i, M));
+      val          := val * base;
+    end loop;  -- i
+
+    return table;
+  end function genLogTable;
+
+  function genPowTable(
+    constant base : gfEl_t)
+      return gfPoly_t is
+
+    constant Q     : natural            := 2**M;
+    variable val   : gfEl_t             := gfOne;
+    variable table : gfPoly_t(0 to Q-1) := (others => gfZero);
+  begin  -- function genPowTable
+    table(1) := (others => '0');
+
+    for i in 0 to Q-2 loop
+      table(i) := val;
+      val      := val * base;
+    end loop;  -- i
+
+    return table;
+  end function genPowTable;
+
+  function calcInvTable
+    return gfPoly_t is
+
+    constant Q        : natural                := 2**M;
+    variable invTable : gfPoly_t(Q-1 downto 0) := (others => gfZero);
+    constant logTable : gfPoly_t(0 to Q-1)     := genLogTable(gfEl(alpha));
+    constant powTable : gfPoly_t               := genPowTable(gfEl(alpha));
+    variable intLog   : natural;
+  begin  -- function calcInvTable
+
+    invTable(0) := gfZero;
+    invTable(1) := gfOne;
+
+    for i in 2 to Q-1 loop
+      intLog := to_integer( unsigned( logTable(i)));
+      invTable(i) := powTable((2**M)-1 - intLog);
+    end loop;  -- i
+
+    return invTable;
+  end function calcInvTable;
+
+end package body gf;

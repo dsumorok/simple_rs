@@ -44,7 +44,7 @@ entity rsEncoder is
 end entity rsEncoder;
 
 architecture rtl of rsEncoder is
-  package gf_pack is new work.gf2 generic map (
+  package gf_pack is new work.gf generic map (
       M           => M,
       primPolyReq => primPoly,
       alpha       => alpha);

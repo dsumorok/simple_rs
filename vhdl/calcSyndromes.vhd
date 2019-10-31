@@ -44,7 +44,7 @@ entity calcSyndromes is
 End entity calcSyndromes;
 
 architecture rtl of calcSyndromes is
-  package gf_pack is new work.gf2 generic map (
+  package gf_pack is new work.gf generic map (
       M           => M,
       primPolyReq => primPoly,
       alpha       => alpha);

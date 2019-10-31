@@ -26,9 +26,8 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 library work;
-use work.gf.all;
 
-entity rsDecoder is  
+entity rsDecoder is
   generic (
     M           : natural;
     n           : natural;
@@ -46,6 +45,7 @@ entity rsDecoder is
 end entity rsDecoder;
 
 architecture rtl of rsDecoder is
+                       
   component calcSyndromes is
     generic (
       M        : natural;
@@ -73,10 +73,10 @@ architecture rtl of rsDecoder is
     port (
       clk            : in  std_logic;
       resetn         : in  std_logic;
-      syndromesIn    : in  gfPoly_t(2*((n-k)/2)-1 downto 0, M-1 downto 0);
+      syndromesIn    : in  std_logic_vector;
       syndromesStart : in  std_logic;
-      errorLocator   : out gfPoly_t((n-k)/2 downto 0, M-1 downto 0);
-      errorEvaluator : out gfPoly_t((n-k)/2-1 downto 0, M-1 downto 0);
+      errorLocator   : out std_logic_vector;
+      errorEvaluator : out std_logic_vector;
       outStart       : out std_logic);
   end component mea;
 
@@ -90,10 +90,10 @@ architecture rtl of rsDecoder is
     port (
       clk            : in  std_logic;
       resetn         : in  std_logic;
-      errorEvaluator : in  gfPoly_t((n-k)/2-1 downto 0, M-1 downto 0);
-      errorLocator   : in  gfPoly_t((n-k)/2 downto 0, M-1 downto 0);
+      errorEvaluator : in  std_logic_vector;
+      errorLocator   : in  std_logic_vector;
       inStart        : in  std_logic;
-      errorVal       : out gfEl_t(M-1 downto 0);
+      errorVal       : out std_logic_vector;
       errorStart     : out std_logic);
   end component calcErrors;
 
@@ -105,26 +105,24 @@ architecture rtl of rsDecoder is
     port (
       clk           : in  std_logic;
       resetn        : in  std_logic;
-      dataIn        : in  gfEl_t(M-1 downto 0);
+      dataIn        : in  std_logic_vector;
       dataInStart   : in  std_logic;
-      errorsIn      : in  gfEl_t(M-1 downto 0);
+      errorsIn      : in  std_logic_vector;
       errorsInStart : in  std_logic;
-      dataOut       : out std_logic_vector(M-1 downto 0);
+      dataOut       : out std_logic_vector;
       dataOutStart  : out std_logic);
   end component correctErrors;
-  
-  constant realPrimPoly : natural := calcPrimPoly(primPoly, alpha, M);
+
   constant t            : natural := (n-k)/2;
-  
+
   signal inEl_i         : std_logic_vector(M-1 downto 0) := (others => '0');
   signal inElStart_i    : std_logic := '0';
-  signal syndromes      : gfPoly_t(2*t-1 downto 0, M-1 downto 0);
-  signal syndromes1     : std_logic_vector(2*t*m-1 downto 0);
+  signal syndromes      : std_logic_vector(2*t*m-1 downto 0);
   signal syndromesStart : std_logic;
-  signal errorLocator   : gfPoly_t(t downto 0, M-1 downto 0);
-  signal errorEvaluator : gfPoly_t(t-1 downto 0, M-1 downto 0);
+  signal errorLocator   : std_logic_vector((t+1)*M-1 downto 0);
+  signal errorEvaluator : std_logic_vector(t*M-1 downto 0);
   signal meaStart       : std_logic;
-  signal errorVal       : gfEl_t(M-1 downto 0);
+  signal errorVal       : std_logic_vector(M-1 downto 0);
   signal errorStart     : std_logic := '0';
   signal outStart_i     : std_logic := '0';
 
@@ -143,24 +141,22 @@ Begin  -- architecture rtl
       M        => M,
       n        => n,
       k        => k,
-      primPoly => realPrimPoly,
+      primPoly => primPoly,
       alpha    => alpha)
     port map (
       clk            => clk,
       resetn         => resetn,
       inEl           => inEl_i,
       inStart        => inElStart_i,
-      syndromes      => syndromes1,
+      syndromes      => syndromes,
       syndromesStart => syndromesStart);
-
-  syndromes <= to_gfPoly(M, syndromes1);
 
   mea_i : mea
     generic map (
       M           => M,
       n           => n,
       k           => k,
-      primPoly    => realPrimPoly,
+      primPoly    => primPoly,
       alpha       => alpha,
       extraCycles => extraCycles)
     port map (
@@ -177,7 +173,7 @@ Begin  -- architecture rtl
       M        => M,
       n        => n,
       k        => k,
-      primPoly => realPrimPoly,
+      primPoly => primPoly,
       alpha    => alpha)
     port map (
       clk            => clk,
@@ -196,11 +192,11 @@ Begin  -- architecture rtl
     port map (
       clk           => clk,
       resetn        => resetn,
-      dataIn        => gfEl_t(inEl_i),
+      dataIn        => inEl_i,
       dataInStart   => inElStart_i,
       errorsIn      => errorVal,
       errorsInStart => errorStart,
       dataOut       => outEl,
       dataOutStart  => outStart);
-  
+
 end architecture rtl;
