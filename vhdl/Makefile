@@ -1,8 +1,7 @@
 TOP = rs_tb
 GHDL = ghdl
 WORKDIR = work
-SIMTIME = 120us
-WAVE = $(TOP).ghw
+WAVE = $(WORKDIR)/$(TOP).ghw
 OPTFILE = $(TOP)_optfile
 STD=08
 
@@ -35,10 +34,12 @@ $(WORKDIR): Makefile
 	$(GHDL) -i --std=$(STD) --workdir=$(WORKDIR) $(SOURCES)
 
 $(WORKDIR)/%.o: %.vhd
-	$(GHDL) -a --std=$(STD) --workdir=$(WORKDIR) $<
+	$(GHDL) -a --std=$(STD) --workdir=$(WORKDIR) -O3 $<
 
 clean:
 	rm -rf $(WORKDIR)
+	rm -f e~$(TOP).o
+	rm -f $(TOP)
 
 $(TOP): $(WORKDIR) $(OBJECTS)
 	$(GHDL) -e --std=$(STD) --workdir=$(WORKDIR) $@

@@ -21,6 +21,9 @@
 --  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 --  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+library std;
+use std.env.all;
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -135,6 +138,8 @@ architecture behavior of rs_tb is
   signal errorCount      : natural                         := 0;
   signal errorStartIndex : natural                         := 0;
   signal count           : natural                         := 0;
+  signal errBit          : natural                         := 3;
+  signal finished        : std_logic                       := '0';
 
 begin  -- architecture behavior
 
@@ -286,7 +291,6 @@ begin  -- architecture behavior
 
   -- Adds error to the encoder output and feeds the decoder
   genDecoderInput: process (clk) is
-    variable errBit   : std_logic_vector(M-1 downto 0) := (others => '0');
     variable outStart : natural := n-t;
   begin  -- process genDecoderInput
     if resetn = '0' then
@@ -318,9 +322,14 @@ begin  -- architecture behavior
 
         if decoderWordCount < errorStartIndex then
           decoderIn <= encoderOut;
+
+        -- The code can correct "t" errors.  Therefore, if you replace
+        -- (errorStartIndex + t) with (errorStartIndex + t + 1), the simulation
+        -- should fail
         elsif decoderWordCount < (errorStartIndex + t) then
-          errBit := std_logic_vector( to_unsigned((n-decoderWordCount) + 15, M));
-          decoderIn <= encoderOut xor errBit;
+          errBit    <= (errBit * 3) mod Q;
+          decoderIn <= encoderOut xor
+                       std_logic_vector(to_unsigned(errBit, M));
         else
           decoderIn <= encoderOut;
         end if;
@@ -341,6 +350,12 @@ begin  -- architecture behavior
         if decoderOut /= fifoDataOut then
           errorCount <= errorCount + 1;
         end if;
+      end if;
+
+      finished <= decoderOutLast;
+      if finished = '1' then
+        assert errorCount = 0 report "Failed to correct errors" severity failure;
+        finish(0);
       end if;
     end if;
   end process countErrors;

@@ -186,14 +186,13 @@ package body gf is
     constant bLen   : natural := b'length;
     constant rLen   : natural := aLen + bLen - 1;
     variable result : gfPoly_t(rLen-1 downto 0)
-      := (others => (others => '0'));
+      := (others => gfZero);
   begin --  function mulPoly
     for i in 0 to rLen-1 loop
       for j in 0 to aLen-1 loop
         for k in 0 to bLen-1 loop
           if (j+k) = i then
-            result(i) := result(i)
-                       + mulEl(a(j), b(k), primPolyUsed);
+            result(i) := result(i) + (a(j) * b(k));
           end if;
         end loop; -- k
       end loop; -- j

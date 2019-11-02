@@ -167,7 +167,7 @@ begin  -- architecture rtl
       outValid  => cDone);
 
   correct: process (clk) is
-    variable tableIndex : natural;
+    variable tableIndex : natural := 0;
   begin  -- process correct
     if rising_edge(clk) then
       if resetn = '0' then

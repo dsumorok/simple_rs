@@ -75,8 +75,9 @@ architecture rtl of chien_search is
 
   signal adderTree  : adderTree_t := (others => (others => gfZero));
 
-  signal count      : natural range 0 to numStages := 0;
-  signal outValid_i : std_logic                    := '0';
+  signal count      : natural range 0 to numStages   := 0;
+  signal outValid_i : std_logic                      := '0';
+  signal valueOut_i : std_logic_vector(M-1 downto 0) := (others => '0');
 begin  -- architecture rtl
 
   mainLogic: process (clk) is
@@ -124,10 +125,11 @@ begin  -- architecture rtl
         end loop;  -- sumNumber
       end loop;  -- stage
 
-      valueOut <= std_logic_vector(adderTree(0)(0));
+      valueOut_i <= std_logic_vector(adderTree(0)(0));
     end if;
   end process mainLogic;
 
   outValid <= outValid_i;
+  valueOut <= valueOut_i;
 
 end architecture rtl;
