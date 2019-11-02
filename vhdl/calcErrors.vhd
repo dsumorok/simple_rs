@@ -69,7 +69,7 @@ architecture rtl of calcErrors is
   constant Q : natural := 2**M;
   constant t : natural := (n-k)/2;
 
-  constant invTable : gfPoly_t(Q-1 downto 0) := calcInvTable;
+  constant invTable : gfPoly_t(Q-1 downto 0) := calcInvTable(alpha);
   constant pAlpha   : natural                := to_integer(unsigned(invTable(alpha)));
   
   signal elVal         : gfEl_t               := gfZero;

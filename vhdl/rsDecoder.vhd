@@ -117,7 +117,7 @@ architecture rtl of rsDecoder is
 
   signal inEl_i         : std_logic_vector(M-1 downto 0) := (others => '0');
   signal inElStart_i    : std_logic := '0';
-  signal syndromes      : std_logic_vector(2*t*m-1 downto 0);
+  signal syndromes      : std_logic_vector(2*t*M-1 downto 0);
   signal syndromesStart : std_logic;
   signal errorLocator   : std_logic_vector((t+1)*M-1 downto 0);
   signal errorEvaluator : std_logic_vector(t*M-1 downto 0);

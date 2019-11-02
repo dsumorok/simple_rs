@@ -74,7 +74,7 @@ architecture rtl of calcSyndromes is
   signal startInSR        : std_logic_vector(2*t+n downto 0) := (others => '0');
   signal state            : gfPoly_t(2*t-1 downto 0)         := (others => gfZero);
   signal syndromes_i      : gfPoly_t(2*t-1 downto 0)         := (others => gfZero);
-  signal inputArray       : gfPoly_t(2*t downto 0)           := (others => gfZero);
+  signal inputArray       : gfPoly_t(2*t-1 downto 0)         := (others => gfZero);
   signal syndromesStart_i : std_logic                        := '0';
 begin  -- architecture rtl
 
@@ -88,7 +88,7 @@ begin  -- architecture rtl
       else
         startInSR  <= startInSR(2*t+n-1 downto 0) & inStart;
       end if;
-      inputArray <= inputArray(2*t-1 downto 0) & gfEl_t(inEl);
+      inputArray <= inputArray(2*t-2 downto 0) & gfEl_t(inEl);
 
       for i in 0 to 2*t-1 loop
         if startInSR(i) = '0' then

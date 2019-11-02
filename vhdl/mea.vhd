@@ -164,6 +164,34 @@ architecture rtl of mea is
   -- Initialize state with a new set of syndromes
   -----------------------------------------------------------------------------
 
+  function zeroWUState
+    return wuState_t is
+
+    variable result : wuState_t;
+
+  begin  -- function zeroWUState
+    result.W             := (others => gfZero);
+    result.U             := (others => gfZero);
+    result.UTop          := gfZero;
+
+    return result;
+  end function zeroWUState;
+
+  function zeroMEAState
+    return meaState_t is
+
+    variable result : meaState_t;
+
+  begin  -- function zeroMEAState
+    result.X             := (others => gfZero);
+    result.V             := (others => gfZero);
+    result.VTop          := gfZero;
+    result.sigma         := 0;
+    result.sigmaNegative := '0';
+
+    return result;
+  end function zeroMEAState;
+
   function initState (
     constant S : gfPoly_t(2*t-1 downto 0))
     return meaState_t is
@@ -317,22 +345,26 @@ architecture rtl of mea is
   end function doSwap;
 
   signal SIn          : gfPoly_t(2*t-1 downto 0);
-  signal count        : natural range 0 to period*2*t := 0;
-  signal done1        : std_logic                     := '0';
-  signal el_i         : gfPoly_t(t downto 0)          := (others => (others => '0'));
-  signal ee_i         : gfPoly_t(t-1 downto 0)        := (others => (others => '0'));
-  signal outValid_i   : std_logic                     := '0';
-  signal shiftRight   : std_logic                     := '0';
-  signal shiftCount   : natural range 0 to t+1        := 0;
-  signal currentState : meaState_t;
-  signal nextState    : meaState_t;
-  signal wuState      : wuState_t;
+  signal count        : natural range 0 to period*2*t        := 0;
+  signal done1        : std_logic                            := '0';
+  signal el_i         : gfPoly_t(t downto 0)                 := (others => gfZero);
+  signal ee_i         : gfPoly_t(t-1 downto 0)               := (others => gfZero);
+  signal el_out       : std_logic_vector((t+1)*M-1 downto 0) := (others => '0');
+  signal ee_out       : std_logic_vector(t*M-1 downto 0)     := (others => '0');
+  signal outValid_i   : std_logic                            := '0';
+  signal shiftRight   : std_logic                            := '0';
+  signal shiftCount   : natural range 0 to t+1               := 0;
+  signal currentState : meaState_t                           := zeroMEAState;
+  signal nextState    : meaState_t                           := zeroMEAState;
+  signal wuState      : wuState_t                            := zeroWUState;
   constant ssInitVal  : std_logic_vector :=
     std_logic_vector(to_unsigned(2**(period-1), period));
 
   signal stateShift   : std_logic_vector(period-1 downto 0)
     := ssInitVal;
 begin  -- architecture rtl
+  errorLocator   <= el_out;
+  errorEvaluator <= ee_out;
 
   SIn <= to_gfPoly(syndromesIn);
 
@@ -442,8 +474,8 @@ begin  -- architecture rtl
 
       if outValid_i = '1' then
         -- Convert from array of array to 2-dimentional array
-        errorLocator   <= to_vector(el_i);
-        errorEvaluator <= to_vector(ee_i);
+        el_out <= to_vector(el_i);
+        ee_out <= to_vector(ee_i);
       end if;
 
       if shiftCount = t+1 and resetn = '1' then

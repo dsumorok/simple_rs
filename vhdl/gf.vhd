@@ -82,7 +82,8 @@ package gf is
     constant vector : std_logic_vector)
     return gfPoly_t;
 
-  function calcInvTable
+  function calcInvTable(
+    constant base : natural)
     return gfPoly_t;
 
   function genLogTable(
@@ -359,13 +360,14 @@ package body gf is
     return table;
   end function genPowTable;
 
-  function calcInvTable
+  function calcInvTable(
+    constant base : natural)
     return gfPoly_t is
 
     constant Q        : natural                := 2**M;
     variable invTable : gfPoly_t(Q-1 downto 0) := (others => gfZero);
-    constant logTable : gfPoly_t(0 to Q-1)     := genLogTable(gfEl(alpha));
-    constant powTable : gfPoly_t               := genPowTable(gfEl(alpha));
+    constant logTable : gfPoly_t(0 to Q-1)     := genLogTable(gfEl(base));
+    constant powTable : gfPoly_t               := genPowTable(gfEl(base));
     variable intLog   : natural;
   begin  -- function calcInvTable
 
