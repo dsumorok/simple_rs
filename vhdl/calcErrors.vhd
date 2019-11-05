@@ -66,11 +66,9 @@ architecture rtl of calcErrors is
       outValid  : out std_logic);
   end component chien_search;
 
-  constant Q : natural := 2**M;
-  constant t : natural := (n-k)/2;
-
-  constant invTable : gfPoly_t(Q-1 downto 0) := calcInvTable(alpha);
-  constant pAlpha   : natural                := to_integer(unsigned(invTable(alpha)));
+  constant Q      : natural := 2**M;
+  constant t      : natural := (n-k)/2;
+  constant pAlpha : natural := inverse(alpha);
   
   signal elVal         : gfEl_t               := gfZero;
   signal numerator     : gfEl_t               := gfZero;
@@ -99,7 +97,7 @@ begin  -- architecture rtl
       if inStart = '1' then
         elVal <= gfOne;
       else
-        elVal <= elVal * invTable(alpha);
+        elVal <= elVal * pAlpha;
       end if;
     end if;
   end process setElCoef;
@@ -167,7 +165,6 @@ begin  -- architecture rtl
       outValid  => cDone);
 
   correct: process (clk) is
-    variable tableIndex : natural := 0;
   begin  -- process correct
     if rising_edge(clk) then
       if resetn = '0' then
@@ -186,8 +183,7 @@ begin  -- architecture rtl
       numerator   <= gfEl_t(eeOut);
       numerator_1 <= numerator;
 
-      tableIndex    := to_integer(unsigned(d_elOut));
-      denominator   <= invTable(tableIndex);
+      denominator   <= inverse( gfEl_t(d_elOut) );
       denominator_1 <= denominator;
 
       errorVal_i <= numerator_1 * denominator_1;

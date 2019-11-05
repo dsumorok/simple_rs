@@ -82,8 +82,7 @@ package gf is
     constant vector : std_logic_vector)
     return gfPoly_t;
 
-  function calcInvTable(
-    constant base : natural)
+  function calcInvTable
     return gfPoly_t;
 
   function genLogTable(
@@ -94,9 +93,18 @@ package gf is
     constant base : gfEl_t)
     return gfPoly_t;
 
-  constant primPolyUsed : natural := calcPrimPoly(primPolyReq);
-  constant gfZero       : gfEl_t  := gfEl_t(to_unsigned(0, M));
-  constant gfOne        : gfEl_t  := gfEl_t(to_unsigned(1, M));
+  function inverse (
+    constant el : gfEl_t)
+    return gfEl_t;
+
+  function inverse (
+    constant el : natural)
+    return natural;
+
+  constant primPolyUsed : natural                   := calcPrimPoly(primPolyReq);
+  constant gfZero       : gfEl_t                    := gfEl_t(to_unsigned(0, M));
+  constant gfOne        : gfEl_t                    := gfEl_t(to_unsigned(1, M));
+  constant inverseTable : gfPoly_t(2**M-1 downto 0) := calcInvTable;
 
 end package gf;
 
@@ -359,14 +367,13 @@ package body gf is
     return table;
   end function genPowTable;
 
-  function calcInvTable(
-    constant base : natural)
+  function calcInvTable
     return gfPoly_t is
 
     constant Q        : natural                := 2**M;
     variable invTable : gfPoly_t(Q-1 downto 0) := (others => gfZero);
-    constant logTable : gfPoly_t(0 to Q-1)     := genLogTable(gfEl(base));
-    constant powTable : gfPoly_t               := genPowTable(gfEl(base));
+    constant logTable : gfPoly_t(0 to Q-1)     := genLogTable(gfEl(alpha));
+    constant powTable : gfPoly_t               := genPowTable(gfEl(alpha));
     variable intLog   : natural;
   begin  -- function calcInvTable
 
@@ -380,5 +387,21 @@ package body gf is
 
     return invTable;
   end function calcInvTable;
+
+  -- purpose: Returns inverse of element
+  function inverse (
+    constant el : gfEl_t)
+    return gfEl_t is
+  begin  -- function inverse
+    return inverseTable( to_integer( unsigned( el ) ) );
+  end function inverse;
+
+  -- purpose: Returns inverse of element
+  function inverse (
+    constant el : natural)
+    return natural is
+  begin  -- function inverse
+    return to_integer( unsigned( inverseTable( el ) ) );
+  end function inverse;
 
 end package body gf;
