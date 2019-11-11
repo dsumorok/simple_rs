@@ -135,6 +135,7 @@ architecture behavior of rs_tb is
   signal writeFifo       : std_logic                       := '0';
   signal feedCount       : natural range 1 to feedPeriod   := 1;
   signal outputCount     : natural range 1 to outputPeriod := 1;
+  signal totalOutCount : natural := 0;
   signal errorCount      : natural                         := 0;
   signal errorStartIndex : natural                         := 0;
   signal count           : natural                         := 0;
@@ -344,9 +345,11 @@ begin  -- architecture behavior
   countErrors: process (clk, resetn) is
   begin  -- process countErrors
     if resetn = '0' then
-      errorCount <= 0;
+      errorCount    <= 0;
+      totalOutCount <= 0;
     elsif rising_edge(clk) then
       if decoderOutValid = '1' and decoderOutReady = '1' then
+        totalOutCount <= totalOutCount + 1;
         if decoderOut /= fifoDataOut then
           errorCount <= errorCount + 1;
         end if;

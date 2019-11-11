@@ -31,7 +31,8 @@ package gf is
     primPolyReq : natural := 0;
     alpha       : natural := 2);
 
-  type gfEl_t is array(M-1 downto 0) of std_logic;
+  --type gfEl_t is array(M-1 downto 0) of std_logic;
+  subtype gfEl_t is std_logic_vector(M-1 downto 0);
   type gfPoly_t is array(natural range <>) of gfEl_t;
 
   -- Multiply two field elements
