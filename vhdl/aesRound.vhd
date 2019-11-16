@@ -27,7 +27,7 @@ use ieee.numeric_std.all;
 
 library work;
 use work.aes_pkg.all;
-use aes_gf.all;
+use work.aes_pkg.aes_gf.all;
 
 entity aesRound is
   port (

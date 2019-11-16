@@ -1,11 +1,17 @@
-TOP = rs_tb
 GHDL = ghdl
-WORKDIR = work
-WAVE = $(WORKDIR)/$(TOP).ghw
-OPTFILE = $(TOP)_optfile
 STD=08
 
-SOURCES = \
+DESIGNS = aes_tb rs_tb
+
+aes_tb_SOURCES = \
+	gf.vhd \
+	aes_pkg.vhd \
+	expandKey.vhd \
+	aesRound.vhd \
+	aes1.vhd \
+	aes_tb.vhd
+
+rs_tb_SOURCES = \
 	gf.vhd \
 	rsUtil.vhd \
 	rs_ram.vhd \
@@ -24,25 +30,39 @@ SOURCES = \
 	rsDecoderWrapper.vhd \
 	rs_tb.vhd
 
-OBJECTS = $(patsubst %.vhd,$(WORKDIR)/%.o,$(SOURCES))
+all: $(DESIGNS)
 
-ALL: $(TOP)
+define add_design
 
-$(WORKDIR): Makefile
-	mkdir -p $(WORKDIR)
-	$(GHDL) --clean --std=$(STD) --workdir=$(WORKDIR)
-	$(GHDL) -i --std=$(STD) --workdir=$(WORKDIR) $(SOURCES)
+$(1)-work/work-obj$(STD).cf: Makefile
+	mkdir -p $(1)-work
+	$(GHDL) --clean --std=$(STD) --workdir=$(1)-work
+	$(GHDL) -i --std=$(STD) --workdir=$(1)-work $(2)
 
-$(WORKDIR)/%.o: %.vhd
-	$(GHDL) -a --std=$(STD) --workdir=$(WORKDIR) -O3 $<
+$(1)-work/%.o: %.vhd
+	$(GHDL) -a --std=$(STD) --workdir=$(1)-work -O3 $$<
 
-clean:
-	rm -rf $(WORKDIR)
-	rm -f e~$(TOP).o
-	rm -f $(TOP)
+$(1): $(patsubst %.vhd,$(1)-work/%.o,$(2))
+	$(GHDL) -e --std=$(STD) --workdir=$(1)-work $(1)
 
-$(TOP): $(WORKDIR) $(OBJECTS)
-	$(GHDL) -e --std=$(STD) --workdir=$(WORKDIR) $@
+$(1)_dep.mk: $(1)-work/work-obj$(STD).cf $2
+	$(GHDL) --gen-depends --std=$(STD) --workdir=$(1)-work $(1) > $(1)_dep.mk
 
-sim: $(TOP)
-	./$(TOP) --wave=$(WAVE) --read-wave-opt=$(OPTFILE)
+$(1)-sim: $(1)
+	./$(1) --wave=$(1).ghw --read-wave-opt=$(1)_optfile
+
+-include $(1)_dep.mk
+
+clean: $(1)-clean
+
+$(1)-clean:
+	rm -rf $(1) $(1).ghw $(1)_dep.mk e~$(1).o $(1)-work
+
+.PHONY: clean $(1)-clean all
+
+endef
+
+$(foreach design, $(DESIGNS), $(eval $(call add_design,$(design), \
+	$($(design)_SOURCES))))
+
+.PHONY: all
