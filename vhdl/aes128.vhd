@@ -28,7 +28,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-entity aes1 is
+entity aes128 is
   port (
     clk     : in  std_logic;
     reset   : in  std_logic;
@@ -38,10 +38,10 @@ entity aes1 is
     busy    : out std_logic;
     ct      : out std_logic_vector(127 downto 0);
     ctValid : out std_logic);
-end entity aes1;
+end entity aes128;
 
-architecture behavior of aes1 is
-  component expandKey is
+architecture behavior of aes128 is
+  component expandKey128 is
     port (
       clk      : in  std_logic;
       reset    : in  std_logic;
@@ -51,7 +51,7 @@ architecture behavior of aes1 is
       keyOut   : out std_logic_vector(31 downto 0);
       RconOut  : out std_logic_vector(7 downto 0);
       outStart : out std_logic);
-  end component expandKey;
+  end component expandKey128;
 
   component aesRound is
     port (
@@ -81,7 +81,7 @@ architecture behavior of aes1 is
   signal lastRound : std_logic                      := '0';
   signal ctValid_i : std_logic                      := '0';
   signal busy_i    : std_logic                      := '0';
-  signal count     : integer                        := 0;
+  signal count     : integer range 0 to 73          := 0;
   
 begin  -- architecture behavior
 
@@ -112,7 +112,7 @@ begin  -- architecture behavior
       end if;
 
       -- After first key and plaintext are fed in, subsequent outputs
-      -- are fed back in.  feedback control the multiplexor
+      -- are fed back in.  feedback controls the multiplexor
       if reset = '1' or count = 66 then
         feedback <= '0';
       elsif count = 4 then
@@ -129,9 +129,9 @@ begin  -- architecture behavior
       -- The busy signal goes high while the block is worked on
       if reset = '1' then
         busy_i <= '0';
-      elsif start = '1' or start1 = '1' then
+      elsif start = '1' then
         busy_i <= '1';
-      elsif count = 0 then
+      elsif count = 73 then
         busy_i <= '0';
       end if;
 
@@ -158,7 +158,7 @@ begin  -- architecture behavior
   busy    <= busy_i;
   ct      <= ct_i;
 
-  expand_i : expandKey
+  expand_i : expandKey128
     port map (
       clk      => clk,
       reset    => reset,

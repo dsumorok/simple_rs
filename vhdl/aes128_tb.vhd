@@ -30,12 +30,12 @@ use ieee.numeric_std.all;
 
 library work;
 
-entity aes_tb is
+entity aes128_tb is
 
-end entity aes_tb;
+end entity aes128_tb;
 
-architecture behavior of aes_tb is
-  component aes1 is
+architecture behavior of aes128_tb is
+  component aes128 is
     port (
       clk     : in  std_logic;
       reset   : in  std_logic;
@@ -45,7 +45,7 @@ architecture behavior of aes_tb is
       busy    : out std_logic;
       ct      : out std_logic_vector(127 downto 0);
       ctValid : out std_logic);
-  end component aes1;
+  end component aes128;
 
   constant CLK_PER : time := 1 us / 100;
 
@@ -56,7 +56,7 @@ architecture behavior of aes_tb is
     X"2b7e151628aed2a6abf7158809cf4f3c";
 
   constant expectedOutput : std_logic_vector(127 downto 0) :=
-    x"3925841d02dc09fbdc118597196a0b32";
+    X"3925841d02dc09fbdc118597196a0b32";
 
   signal clk     : std_logic := '0';
   signal reset   : std_logic := '1';
@@ -116,7 +116,7 @@ begin  -- architecture behavior
     end if;
   end process waitDone;
 
-  aes_i : aes1
+  aes_i : aes128
     port map (
       clk     => clk,
       reset   => reset,

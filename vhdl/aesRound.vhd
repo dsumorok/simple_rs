@@ -85,7 +85,7 @@ begin  -- architecture behavior
       end if;
 
       -- AddRoundKey step
-      inWord <= to_aesWord(ptIn) xor to_aesWord(keyIn);
+      inWord <= to_aesWord(ptIn xor keyIn);
 
       -- SubBytes step
       for i in 3 downto 0 loop

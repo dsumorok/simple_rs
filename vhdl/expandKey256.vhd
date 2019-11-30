@@ -29,7 +29,7 @@ library work;
 use work.aes_pkg.all;
 use work.aes_pkg.aes_gf.all;
 
-entity expandKey is
+entity expandKey256 is
   port (
     clk      : in  std_logic;
     reset    : in  std_logic;
@@ -39,14 +39,14 @@ entity expandKey is
     keyOut   : out std_logic_vector(31 downto 0);
     rConOut  : out std_logic_vector(7 downto 0);
     outStart : out std_logic);
-end entity expandKey;
+end entity expandKey256;
 
-architecture behavior of expandKey is
+architecture behavior of expandKey256 is
   signal subWord    : aesWord_t                     := aesZero;
   signal afterrCon  : aesWord_t                     := aesZero;
-  signal savedWords : aesWordArray_t(5 downto 0)    := (others => aesZero);
+  signal savedWords : aesWordArray_t(12 downto 0)   := (others => aesZero);
   signal temp       : aesWord_t                     := aesZero;
-  signal control    : std_logic_vector(5 downto 0)  := (others => '0');
+  signal control    : std_logic_vector(12 downto 0) := (others => '0');
   signal keyOut_i   : std_logic_vector(31 downto 0) := (others => '0');
   signal rConOut_i  : std_logic_vector(7 downto 0)  := (others => '0');
   signal rConIn     : std_logic_vector(7 downto 0)  := (others => '0');
@@ -54,6 +54,7 @@ architecture behavior of expandKey is
   signal rCon2      : std_logic_vector(7 downto 0)  := (others => '0');
   signal rCon3      : std_logic_vector(7 downto 0)  := (others => '0');
   signal outStart_i : std_logic                     := '0';
+  signal oddEven    : std_logic                     := '0';
 
 begin  -- architecture behavior
 
@@ -63,12 +64,8 @@ begin  -- architecture behavior
       -- Control word
       if reset = '1' then
         control <= (others => '0');
-
-      elsif start = '1' then
-        control <= control(4 downto 0) & '1';
-
       else
-        control <= control(4 downto 0) & '0';
+        control <= control(control'length-2 downto 0) & start;
       end if;
 
       -- Save input
@@ -85,13 +82,21 @@ begin  -- architecture behavior
         rCon1 <= rCon;
       end if;
 
-      if control(3) = '1' then
+      if control(6) = '1' then
         rCon2  <= rCon1;
       end if;
 
-      -- Add rCon
-      afterrCon(3)          <= subWord(3) + gfEl_t(rCon2);
-      afterrCon(2 downto 0) <= subWord(2 downto 0);
+      if oddEven = '0' then
+        -- Add rCon
+        afterrCon(3)          <= subWord(3) + gfEl_t(rCon2);
+        afterrCon(2 downto 0) <= subWord(2 downto 0);
+      else
+        -- Every other group of 4, don't add rCon, and undo the shift from the
+        -- s-box step
+        for i in 0 to 3 loop
+          afterrCon(i) <= subWord( (i+1) mod 4 );
+        end loop;  -- i
+      end if;
 
       -- Output valid signal
       if reset = '1' then
@@ -100,16 +105,23 @@ begin  -- architecture behavior
         outStart_i <= control(5);
       end if;
 
-      if control(5) = '1' then
+      if reset = '1' then
+        oddEven <= '0';
+      elsif control(11) = '1' then
+        oddEven <= not oddEven;
+      end if;
+
+      if control(12) = '1' then
         -- Generate first word of output key
-        temp       <= savedWords(5) xor afterrCon;
+        temp <= savedWords(12) xor afterrCon;
 
-        -- Generate new rCon
-        rConOut_i  <= std_logic_vector( gfEl_t(rCon2) * 2 );
+        if oddEven = '1' then
+          -- Generate new rCon
+          rConOut_i  <= rCon2(6 downto 0) & "0";
+        end if;
       else
-
         -- Generate next word of output key
-        temp <= savedWords(5) xor temp;
+        temp <= savedWords(12) xor temp;
       end if;
 
     end if;
